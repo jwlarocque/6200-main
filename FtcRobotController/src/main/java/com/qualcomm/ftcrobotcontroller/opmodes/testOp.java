@@ -11,6 +11,8 @@ import com.qualcomm.robotcore.util.Range;
 /**
  * Test operating mode for FTC team 6200
  * Created by john on 10/5/15.
+ * TODO easy mode controls, navigation/awareness/sensor fusion
+ *
  */
 public class testOp extends OpMode {
 
