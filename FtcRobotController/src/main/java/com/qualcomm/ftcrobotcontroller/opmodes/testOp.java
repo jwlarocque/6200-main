@@ -16,7 +16,8 @@ import com.qualcomm.robotcore.util.Range;
  */
 public class testOp extends OpMode {
 
-    //abstraction layer (quick settings) (there might be a better way to do this)
+    //abstraction layer (quick settings) gets less nice as you go along.
+    int mode = 0; //{tank, easy}
     double left_drive_pwr() {return -gamepad1.left_stick_y;}
     double right_drive_pwr() {return -gamepad1.right_stick_y;}
     // vvv leave these as false because I didn't actually write anything for encoders
