@@ -11,19 +11,49 @@ import com.qualcomm.robotcore.util.Range;
 /**
  * Test operating mode for FTC team 6200
  * Created by john on 10/5/15.
- * TODO easy mode controls, navigation/awareness/sensor fusion
- *
+ * TODO implement navigation/awareness/sensor fusion
  */
 public class testOp extends OpMode {
 
-    //abstraction layer (quick settings) (there might be a better way to do this)
-    double left_drive_pwr() {return -gamepad1.left_stick_y;}
-    double right_drive_pwr() {return -gamepad1.right_stick_y;}
+    //abstraction layer (quick settings) gets less nice as you go along.
+    //if you want to change the easy mode button map, I'm sorry - good luck
+    int mode = 0; //{tank, easy}
+    double left_drive_pwr() {
+        if (mode == 0)
+            return -gamepad1.left_stick_y; //change this value to change pwrLD under tank controls
+        else if (mode == 1) {
+            easy_total = Math.sqrt((gamepad1.left_stick_x * gamepad1.left_stick_x) + (gamepad1.left_stick_y * gamepad1.left_stick_y));
+            if (gamepad1.left_stick_x > 0)
+                return scale_power(easy_total);
+            else {
+                return scale_power(easy_total * (1 + gamepad1.left_stick_x));
+            }
+        }
+        else
+            return 0;
+    }
+    double right_drive_pwr() {
+        if (mode == 0)
+            return -gamepad1.right_stick_y; //change this value to change pwrRD under tank controls
+        else if (mode == 1) {
+            easy_total = Math.sqrt((gamepad1.left_stick_x * gamepad1.left_stick_x) + (gamepad1.left_stick_y * gamepad1.left_stick_y));
+            if (gamepad1.left_stick_x < 0)
+                return scale_power(easy_total);
+            else {
+                return scale_power(easy_total * (1 - gamepad1.left_stick_x));
+            }
+        }
+        else
+            return 0;
+    }
     // vvv leave these as false because I didn't actually write anything for encoders
     boolean right_drive_enc = false;
     boolean left_drive_enc = false;
     //this is the exponential scaling for stick input, might change that algorithm
     double drive_scale_exp = 1.4;
+
+    //some variables for easy drive mode
+    double easy_total = 0;
 
     //motor declarations
     private DcMotor right_drive;
@@ -39,7 +69,7 @@ public class testOp extends OpMode {
         pseudo_left = hardwareMap.dcMotor.get("psl");
 
         //set encoder runmode for right drive
-        if(right_drive != null) {
+        if (right_drive != null) {
             if (!right_drive_enc) {
                 if (left_drive.getChannelMode() == DcMotorController.RunMode.RESET_ENCODERS)
                     right_drive.setChannelMode(DcMotorController.RunMode.RUN_WITHOUT_ENCODERS);
@@ -49,7 +79,7 @@ public class testOp extends OpMode {
             }
 
         //set encoder runmode for left drive
-        if(left_drive != null) {
+        if (left_drive != null) {
             if (!left_drive_enc) {
                 if (left_drive.getChannelMode () == DcMotorController.RunMode.RESET_ENCODERS) {
                     left_drive.setChannelMode(DcMotorController.RunMode.RUN_WITHOUT_ENCODERS);
@@ -91,7 +121,7 @@ public class testOp extends OpMode {
     }
 
     double scale_power(double input, double exponent) {
-        if(input >= 0) {
+        if (input >= 0) {
             return Math.pow(input, exponent);
         }
         else {
