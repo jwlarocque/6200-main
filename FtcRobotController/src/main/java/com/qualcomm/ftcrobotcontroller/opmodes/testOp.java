@@ -1,7 +1,6 @@
 package com.qualcomm.ftcrobotcontroller.opmodes;
 
 //import
-import com.qualcomm.ftccommon.DbgLog;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorController;
@@ -10,47 +9,82 @@ import com.qualcomm.robotcore.util.Range;
 
 /**
  * Test operating mode for FTC team 6200
- * Created by john on 10/5/15.
- * TODO easy mode controls, navigation/awareness/sensor fusion
- *
+ * Created by John LaRocque on 10/5/15.
+ * TODO implement navigation/awareness/sensor fusion
  */
 public class testOp extends OpMode {
 
-    //abstraction layer (quick settings) gets less nice as you go along.
-    int mode = 0; //{tank, easy}
-    double left_drive_pwr() {return -gamepad1.left_stick_y;}
+    //!!! abstraction layer (quick settings) !!! ---------------------------------------------------
+
+    //control abstraction
+    double left_drive_pwr() {return gamepad1.left_stick_y;}
     double right_drive_pwr() {return -gamepad1.right_stick_y;}
-    // vvv leave these as false because I didn't actually write anything for encoders
+    boolean extend_left() {return gamepad1.a;}
+    boolean retract_left() {return gamepad1.b;}
+    //first input is for seperate servo input, second is otherwise
+    boolean extend_right() {if (separate_servos) {return gamepad1.x;} return gamepad1.a;}
+    boolean retract_right() {if (separate_servos) {return gamepad1.y;} return gamepad1.b;}
+
+
+    //leave these as false because I didn't actually write anything for encoders
     boolean right_drive_enc = false;
     boolean left_drive_enc = false;
-    //this is the exponential scaling for stick input, might change that algorithm
-    double drive_scale_exp = 1.4;
+    //this is the exponential scaling for stick input, do not change this much
+    final static double drive_scale_exp = 1.4;
 
     //motor declarations
     private DcMotor right_drive;
     private DcMotor left_drive;
-    private DcMotor pseudo_left;
-    private DcMotor pseudo_right;
+    //names of above motors for identification
+    //!!! THESE MUST MATCH THE NAMES IN THE ROBOT CONFIG FILE !!!
+    final static String right_drive_name = "right";
+    final static String left_drive_name = "left";
+
+    //should we attempt to use servos? (currently: servo1 and servo2)
+    boolean servos = true;
+    //should we control the left and right servos separately? (see gamepad inputs above)
+    boolean separate_servos = true;
+    //starting positions of servos, with current hardware configuration, these should be the same
+    double left_position = 0.84;
+    double right_position = 0.84;
+    //position of servos in deployed state (this value has no units, idk how it works)
+    final static double servo_deploy = 0.0;
+    //position of servos in retracted state
+    final static double servo_retract = 1.0;
+    //amount to increment/decrement servo position, affects speed at which they move
+    final static double servo_increment = .02;
+
+    //servo declarations
+    private Servo servo1;
+    private Servo servo2;
+    //names of above servos for identification
+    //!!! THESE MUST MATCH THE NAMES IN THE ROBOT CONFIG FILE !!!
+    final static String servo1_name = "servo1";
+    final static String servo2_name = "servo2";
+
+    // End abstraction -----------------------------------------------------------------------------
+
 
     public testOp(){}
     @Override public void init(){
-        right_drive = hardwareMap.dcMotor.get("right");
-        left_drive = hardwareMap.dcMotor.get("left");
-        pseudo_right = hardwareMap.dcMotor.get("psr");
-        pseudo_left = hardwareMap.dcMotor.get("psl");
+        right_drive = hardwareMap.dcMotor.get(right_drive_name);
+        left_drive = hardwareMap.dcMotor.get(left_drive_name);
+
+        servo1 = hardwareMap.servo.get(servo1_name);
+        servo2 = hardwareMap.servo.get(servo2_name);
 
         //set encoder runmode for right drive
-        if(right_drive != null) {
+        if (right_drive != null) {
             if (!right_drive_enc) {
                 if (left_drive.getChannelMode() == DcMotorController.RunMode.RESET_ENCODERS)
                     right_drive.setChannelMode(DcMotorController.RunMode.RUN_WITHOUT_ENCODERS);
-                }
             } else {
                 right_drive.setChannelMode(DcMotorController.RunMode.RUN_USING_ENCODERS);
             }
+        }
 
         //set encoder runmode for left drive
-        if(left_drive != null) {
+        if (left_drive != null) {
             if (!left_drive_enc) {
                 if (left_drive.getChannelMode () == DcMotorController.RunMode.RESET_ENCODERS) {
                     left_drive.setChannelMode(DcMotorController.RunMode.RUN_WITHOUT_ENCODERS);
@@ -66,22 +100,39 @@ public class testOp extends OpMode {
 
     @Override public void loop(){
         //set power
-        set_right_drive_power(scale_power(right_drive_pwr()));
-        set_left_drive_power(scale_power(left_drive_pwr()));
+        set_drive_power();
+
+        // if servos are enabled, set servo positions and report this
+        if (servos) {
+            if (extend_left()) {
+                left_position = Range.clip(left_position - servo_increment, servo_deploy, servo_retract);
+                telemetry.addData("servos", "extending");
+            }
+            else if (retract_left()) {
+                left_position = Range.clip(left_position + servo_increment, servo_deploy, servo_retract);
+                telemetry.addData("servos", "retracting");
+            }
+            if (extend_right()) {
+                right_position = Range.clip(right_position - servo_increment, servo_deploy, servo_retract);
+                telemetry.addData("servos", "extending");
+            }
+            else if (retract_right()) {
+                right_position = Range.clip(right_position + servo_increment, servo_deploy, servo_retract);
+                telemetry.addData("servos", "retracting");
+            }
+        }
+
+        servo1.setPosition(left_position);
+        servo2.setPosition(right_position);
 
         //report power
         telemetry.addData("pwrLD", left_drive.getPower());
         telemetry.addData("pwrRD", right_drive.getPower());
     }
 
-    void set_right_drive_power(double power){
-        right_drive.setPower(power);
-        pseudo_right.setPower(power);
-    }
-
-    void set_left_drive_power(double power){
-        left_drive.setPower(power);
-        pseudo_left.setPower(power);
+    void set_drive_power(){
+        right_drive.setPower(scale_power(right_drive_pwr()));
+        left_drive.setPower(scale_power(left_drive_pwr()));
     }
 
     public void stop(){
@@ -92,7 +143,7 @@ public class testOp extends OpMode {
     }
 
     double scale_power(double input, double exponent) {
-        if(input >= 0) {
+        if (input >= 0) {
             return Math.pow(input, exponent);
         }
         else {
