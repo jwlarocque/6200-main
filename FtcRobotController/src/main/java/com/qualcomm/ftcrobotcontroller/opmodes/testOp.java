@@ -19,11 +19,13 @@ public class testOp extends OpMode {
     //control abstraction
     double left_drive_pwr() {return gamepad1.left_stick_y;}
     double right_drive_pwr() {return -gamepad1.right_stick_y;}
-    boolean extend_left() {return gamepad1.a;}
-    boolean retract_left() {return gamepad1.b;}
+    boolean extend_left() {if (separate_servos) {return gamepad2.left_bumper;} return gamepad1.a;}
+    boolean retract_left() {if (separate_servos) {return gamepad2.left_trigger > 0.0;} return gamepad1.b;}
     //first input is for seperate servo input, second is otherwise
-    boolean extend_right() {if (separate_servos) {return gamepad1.x;} return gamepad1.a;}
-    boolean retract_right() {if (separate_servos) {return gamepad1.y;} return gamepad1.b;}
+    boolean extend_right() {if (separate_servos) {return gamepad2.right_bumper;} return gamepad1.a;}
+    boolean retract_right() {if (separate_servos) {return gamepad2.right_trigger > 0.0;} return gamepad1.b;}
+    boolean extend_latch() {return gamepad2.a;}
+    boolean retract_latch() {return gamepad2.b;}
 
 
     //leave these as false because I didn't actually write anything for encoders
@@ -44,9 +46,13 @@ public class testOp extends OpMode {
     boolean servos = true;
     //should we control the left and right servos separately? (see gamepad inputs above)
     boolean separate_servos = true;
+    //should we attempt to use the latch servo?
+    boolean has_latch = true;
     //starting positions of servos, with current hardware configuration, these should be the same
-    double left_position = 0.84;
-    double right_position = 0.84;
+    double left_position = 0.8;
+    double right_position = 0.8;
+    //starting position of latch servo
+    double latch_position = 0.1;
     //position of servos in deployed state (this value has no units, idk how it works)
     final static double servo_deploy = 0.0;
     //position of servos in retracted state
@@ -57,10 +63,12 @@ public class testOp extends OpMode {
     //servo declarations
     private Servo servo1;
     private Servo servo2;
+    private Servo latch;
     //names of above servos for identification
     //!!! THESE MUST MATCH THE NAMES IN THE ROBOT CONFIG FILE !!!
     final static String servo1_name = "servo1";
     final static String servo2_name = "servo2";
+    final static String latch_name = "latch";
 
     // End abstraction -----------------------------------------------------------------------------
 
@@ -72,6 +80,7 @@ public class testOp extends OpMode {
 
         servo1 = hardwareMap.servo.get(servo1_name);
         servo2 = hardwareMap.servo.get(servo2_name);
+        latch = hardwareMap.servo.get(latch_name);
 
         //set encoder runmode for right drive
         if (right_drive != null) {
@@ -122,8 +131,22 @@ public class testOp extends OpMode {
             }
         }
 
+        //if latch is enabled, set latch positions
+        if (has_latch) {
+            if (extend_latch()) {
+                latch_position = Range.clip(latch_position - servo_increment, servo_deploy, servo_retract);
+                telemetry.addData("latch", "extending");
+            }
+            else if (retract_latch()) {
+                latch_position = Range.clip(latch_position + servo_increment, servo_deploy, servo_retract);
+                telemetry.addData("latch", "retracting");
+            }
+        }
+
+        //set servo positions
         servo1.setPosition(left_position);
         servo2.setPosition(right_position);
+        latch.setPosition(latch_position);
 
         //report power
         telemetry.addData("pwrLD", left_drive.getPower());
