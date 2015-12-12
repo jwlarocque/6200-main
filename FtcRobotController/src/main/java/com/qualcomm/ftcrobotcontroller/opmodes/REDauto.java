@@ -9,21 +9,40 @@ import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.Range;
 
 /**
- * Test autonomous operating mode for FTC team 6200
+ * Test autonomous operating mode for FTC team 6200, blue team
  * Created by john on 11/3/15.
  */
-public class autoOp extends OpMode {
-    // vvv leave these as false because I didn't actually write anything for encoders
+public class REDauto extends OpMode {
+    // !!! There are NO curves in this autonomous, any behavior other than straight lines and
+    // point turns (same power on each motor) will break the navigation
+    // METERS are units (give
+
+
+    // these are sample waypoints
+    double[][] waypoints = {{1.0, 1.0}, {2.0, 2.0}};
+
+    //this is stuff for navigation
+    //this value is how far the robot goes when the encoder position increases by one
+    //MEASURE PRECISELY
+    //meters traveled with one increment of encoder value
+    final static double linear_encoder_mult = 1;
+    //degrees rotated with one increment of the encoder values
+    final static double angular_encoder_vmult = 1;
+    double offset_x = 0; // position is relative
+    double offset_y = 0;
+    double heading = 0; // heading is absolute, and initially 90
+    double time_current = 0;
+    double time_last = 0;
+
+    //leave these as false because I didn't actually write anything for encoders
     boolean right_drive_enc = false;
     boolean left_drive_enc = false;
-    //this is the exponential scaling for stick input, might change that algorithm
-    double drive_scale_exp = 1.4;
 
     //motor declarations
     private DcMotor right_drive;
     private DcMotor left_drive;
 
-    public autoOp(){}
+    public REDauto(){}
     @Override public void init(){
         right_drive = hardwareMap.dcMotor.get("right");
         left_drive = hardwareMap.dcMotor.get("left");
@@ -54,31 +73,24 @@ public class autoOp extends OpMode {
     }
 
     @Override public void loop(){
+        time_last = time_current;
+        time_current = this.time;
 
-        if (this.time <= 1) {
-            right_drive.setPower(.15);
-            left_drive.setPower(.15);
-        }
-        else if (this.time > 1 && this.time <= 2) {
-            right_drive.setPower(.2);
-            left_drive.setPower(-.2);
+        update_offset();
+
+        if (this.time <= 28.0) {
+            navigate();
         }
     }
 
     public void stop(){
     }
 
-    double scale_power(double input) {
-        return scale_power(input, drive_scale_exp);
+    public void navigate() {
+        // if
     }
 
-    double scale_power(double input, double exponent) {
-        if (input >= 0) {
-            return Math.pow(input, exponent);
-        }
-        else {
-            return 0.0 - Math.pow(Math.abs(input), exponent);
-        }
-    }
+    public void update_offset() {
 
+    }
 }
