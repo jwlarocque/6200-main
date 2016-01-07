@@ -10,11 +10,11 @@ import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.Range;
 
 /**
- * Test driver controlled operating mode for FTC team 6200
+ * Driver controlled operating mode for FTC team 6200
  * Created by John LaRocque on 10/5/15.
- * TODO implement navigation/awareness/sensor fusion
+ * TODO implement navigation/awareness/sensor fusion, maybe
  */
-public class testOp extends OpMode {
+public class teleOp extends OpMode {
 
     //!!! abstraction layer (quick settings) !!! ---------------------------------------------------
 
@@ -22,6 +22,7 @@ public class testOp extends OpMode {
     double left_drive_pwr() {return gamepad1.left_stick_y;}
     double right_drive_pwr() {return gamepad1.right_stick_y;}
     double lift_pwr() {return gamepad2.left_stick_y;}
+    double winch_pwr() {return gamepad2.right_stick_y;}
     //if the driver (gamepad1) is pressing any shoulder bumper or trigger, we enable fine drive controls
     //I've used trigger > .1 because I don't want it to be triggered accidentally (not sure how the sensor works)
     boolean fine_drive() {return (gamepad1.right_bumper || gamepad1.left_bumper);}
@@ -33,7 +34,9 @@ public class testOp extends OpMode {
     boolean retract_right() {if (separate_servos) {return gamepad2.right_trigger > 0.0;} return gamepad1.b;}
     boolean extend_latch() {return gamepad2.a;}
     boolean retract_latch() {return gamepad2.b;}
-
+    boolean hold = false;
+    boolean hold_button() {return gamepad2.x;}
+    boolean stop_hold() {return gamepad2.y;}
 
     //leave these as false because I didn't actually write anything for encoders
     boolean right_drive_enc = false;
@@ -61,6 +64,7 @@ public class testOp extends OpMode {
     private DcMotor right_drive_front;
     private DcMotor left_drive_front;
     private DcMotor lift;
+    private DcMotor winch;
     //names of above motors for identification
     //!!! THESE MUST MATCH THE NAMES IN THE ROBOT CONFIG FILE !!!
     final static String right_drive_name = "right";
@@ -68,6 +72,7 @@ public class testOp extends OpMode {
     final static String right_front_name = "right_front";
     final static String left_front_name = "left_front";
     final static String lift_name = "lift";
+    final static String winch_name = "winch";
 
     //should we attempt to use servos? (currently: servo1 and servo2)
     final static boolean has_servos = true;
@@ -79,11 +84,11 @@ public class testOp extends OpMode {
     double left_position = 0.9;
     double right_position = 0.9;
     //starting position of latch servo
-    double latch_position = 1.0;
+    double latch_position = 0.0;
     //position of servos in deployed state (this value has no units, idk how it works)
     final static double servo_deploy = 0.0;
     //position of servos in retracted state
-    final static double servo_retract = 0.9;
+    final static double servo_retract = 1.0;
     //amount to increment/decrement servo position, affects speed at which they move
     final static double servo_increment = .02;
 
@@ -100,7 +105,7 @@ public class testOp extends OpMode {
     // End abstraction -----------------------------------------------------------------------------
 
 
-    public testOp() {}
+    public teleOp() {}
     @Override public void init() {
         //we let the whole thing crash if any drive motor doesn't work, because they are absolutely essential
         right_drive = hardwareMap.dcMotor.get(right_drive_name);
@@ -114,6 +119,12 @@ public class testOp extends OpMode {
             lift = hardwareMap.dcMotor.get(lift_name);
         } catch (Exception p_exception) {
             lift = null;
+        }
+
+        try {
+            winch = hardwareMap.dcMotor.get(winch_name);
+        } catch (Exception p_exception) {
+            winch = null;
         }
 
         servo1 = hardwareMap.servo.get(servo1_name);
@@ -153,6 +164,10 @@ public class testOp extends OpMode {
             lift.setChannelMode(DcMotorController.RunMode.RUN_WITHOUT_ENCODERS);
         }
 
+        if (winch != null) {
+            winch.setChannelMode(DcMotorController.RunMode.RUN_WITHOUT_ENCODERS);
+        }
+
         right_drive.setDirection(right_direction);
         right_drive_front.setDirection(right_front_direction);
         left_drive.setDirection(left_direction);
@@ -169,6 +184,13 @@ public class testOp extends OpMode {
             reverse = !reverse;
         }
 
+        if (hold_button()) {
+            hold = true;
+        }
+        if (stop_hold()) {
+            hold = false;
+        }
+
         //set power
         set_drive_power();
 
@@ -178,6 +200,19 @@ public class testOp extends OpMode {
                 telemetry.addData("lift_status", "running");
             } catch (Exception p_exception) {
                 telemetry.addData("lift_status", "failed");
+            }
+        }
+
+        if (winch != null) {
+            try {
+                if (hold) {
+                    winch.setPower(0.1);
+                } else {
+                    winch.setPower(scale_power(winch_pwr(), drive_scale_exp));
+                    telemetry.addData("winch_status", "running");
+                }
+            } catch (Exception p_exception) {
+                telemetry.addData("winch_status", "failed");
             }
         }
 
